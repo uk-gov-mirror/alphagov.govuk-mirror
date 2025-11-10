@@ -3,9 +3,12 @@ package main
 import (
 	"mirrorer/internal/config"
 	"mirrorer/internal/crawler"
+	"mirrorer/internal/metrics"
 	"mirrorer/internal/mime"
 	"os"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -14,6 +17,13 @@ import (
 func main() {
 	initLogger()
 	initMime()
+
+	// Create a non-global registry
+	reg := prometheus.NewRegistry()
+
+	// Initialize metrics
+	m := metrics.NewMetrics(reg)
+
 	cfg := initConfig()
 
 	// Validate that the SITE URL and allowed domains are accessible before crawling
@@ -23,10 +33,13 @@ func main() {
 		checkError(err, "Configuration validation failed")
 	}
 
-	cr, err := crawler.NewCrawler(cfg)
+	cr, err := crawler.NewCrawler(cfg, m)
 	checkError(err, "Error creating new crawler")
 
-	cr.Run()
+	cr.Run(m)
+
+	// Push metrics to Prometheus Pushgateway
+	metrics.PushMetrics(reg)
 }
 
 func initLogger() {

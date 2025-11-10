@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"mirrorer/internal/config"
 	"mirrorer/internal/file"
+	"mirrorer/internal/metrics"
 	"mirrorer/internal/mime"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/gocolly/colly/v2"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -193,7 +195,13 @@ func TestNewCrawler(t *testing.T) {
 		},
 	}
 
-	cr, err := NewCrawler(cfg)
+	// Create a non-global registry
+	reg := prometheus.NewRegistry()
+
+	// Initialize metrics
+	m := metrics.NewMetrics(reg)
+
+	cr, err := NewCrawler(cfg, m)
 	assert.Nil(t, err)
 	assert.NotNil(t, cr)
 	assert.Equal(t, cfg, cr.cfg)
@@ -296,7 +304,13 @@ func TestRun(t *testing.T) {
 			regexp.MustCompile("/disallowed"),
 		},
 	}
-	cr, err := NewCrawler(cfg)
+
+	// Create a non-global registry
+	reg := prometheus.NewRegistry()
+
+	// Initialize metrics
+	m := metrics.NewMetrics(reg)
+	cr, err := NewCrawler(cfg, m)
 	assert.NoError(t, err)
 
 	defer func() {
@@ -305,7 +319,7 @@ func TestRun(t *testing.T) {
 		}
 	}()
 
-	cr.Run()
+	cr.Run(m)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
