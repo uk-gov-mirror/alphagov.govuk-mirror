@@ -16,6 +16,7 @@ type Config struct {
 	URLFilters           []*regexp.Regexp  `env:"URL_RULES" envSeparator:","`
 	DisallowedURLFilters []*regexp.Regexp  `env:"DISALLOWED_URL_RULES" envSeparator:","`
 	SkipValidation       bool              `env:"SKIP_VALIDATION" envDefault:"false"`
+	Async				 bool              `env:"ASYNC" envDefault:"true"`
 }
 
 func NewConfig() (*Config, error) {

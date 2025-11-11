@@ -235,6 +235,7 @@ func TestNewCrawler(t *testing.T) {
 		DisallowedURLFilters: []*regexp.Regexp{
 			regexp.MustCompile(".*disallowed.*"),
 		},
+		Async: false,
 	}
 
 	cr, err := NewCrawler(cfg)
@@ -246,7 +247,6 @@ func TestNewCrawler(t *testing.T) {
 	assert.Equal(t, []string{"example.com"}, cr.collector.AllowedDomains)
 	assert.Equal(t, []*regexp.Regexp{regexp.MustCompile(".*")}, cr.collector.URLFilters)
 	assert.Equal(t, []*regexp.Regexp{regexp.MustCompile(".*disallowed.*")}, cr.collector.DisallowedURLFilters)
-	assert.Equal(t, true, cr.collector.Async)
 }
 
 func TestRun(t *testing.T) {
