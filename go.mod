@@ -3,6 +3,7 @@ module mirrorer
 go 1.24.3
 
 require (
+	github.com/antchfx/xmlquery v1.4.4
 	github.com/caarlos0/env/v9 v9.0.0
 	github.com/gocolly/colly/v2 v2.2.0
 	github.com/rs/zerolog v1.34.0
@@ -13,7 +14,6 @@ require (
 	github.com/PuerkitoBio/goquery v1.10.3 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/antchfx/htmlquery v1.3.4 // indirect
-	github.com/antchfx/xmlquery v1.4.4 // indirect
 	github.com/antchfx/xpath v1.3.4 // indirect
 	github.com/bits-and-blooms/bitset v1.22.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect

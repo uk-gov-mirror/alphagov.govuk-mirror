@@ -2,16 +2,34 @@ package crawler
 
 import (
 	"errors"
+	"fmt"
 	"mime"
 	"mirrorer/internal/client"
 	"mirrorer/internal/config"
 	"mirrorer/internal/file"
 	"net/http"
+	"sort"
 	"strings"
 
+	"github.com/antchfx/xmlquery"
 	"github.com/gocolly/colly/v2"
 	"github.com/rs/zerolog/log"
 )
+
+type entry  struct {
+    val string
+    key string
+}
+
+type entries []entry
+var es entries
+
+func (s entries) Len() int { return len(s) }
+func (s entries) Less(i, j int) bool { return s[i].val < s[j].val }
+func (s entries) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+
+var num_sitemaps int = 0
+var counter_sitemaps int = 0
 
 type Crawler struct {
 	cfg       *config.Config
@@ -59,9 +77,12 @@ func newCollector(cfg *config.Config) (*colly.Collector, error) {
 	// Set up a crawling logic
 	c.OnHTML("a[href], link[href], img[src], script[src]", htmlHandler)
 
-	// Crawl sitemap indexes and sitemaps
-	c.OnXML("//sitemapindex/sitemap/loc", xmlHandler)
-	c.OnXML("//urlset/url/loc", xmlHandler)
+	// crawl sitemap index
+	c.OnXML("//sitemapindex", sitemapXmlHandler)
+	// crawl urlset in sitemap
+	c.OnXML("//urlset", urlsetXmlHandler)
+
+	c.OnScraped(scrapeHandler)
 
 	return c, nil
 }
@@ -106,10 +127,49 @@ func htmlHandler(e *colly.HTMLElement) {
 	}
 }
 
-func xmlHandler(e *colly.XMLElement) {
-	err := e.Request.Visit(e.Text)
-	if err != nil && !isForbiddenURLError(err) {
-		log.Error().Err(err).Str("link", e.Text).Msg("Error attempting to visit link")
+func sitemapXmlHandler(e *colly.XMLElement) {
+	nodes, _ := xmlquery.QueryAll(e.DOM.(*xmlquery.Node), "//sitemap")
+	num_sitemaps = len(nodes)
+
+	xmlquery.FindEach(e.DOM.(*xmlquery.Node), "//sitemap", func(i int, child *xmlquery.Node) {
+		err := e.Request.Visit(child.SelectElement("loc").InnerText())
+		if err != nil && !isForbiddenURLError(err) {
+			log.Error().Err(err).Str("link", e.Text).Msg("Error attempting to visit link")
+		}
+
+		es = append(es, entry{
+			val: child.SelectElement("lastmod").InnerText(), key: child.SelectElement("loc").InnerText()})
+	})
+}
+
+func urlsetXmlHandler(e *colly.XMLElement) {
+	xmlquery.FindEach(e.DOM.(*xmlquery.Node), "//url", func(i int, child *xmlquery.Node) {
+		var lastmod string
+		if child.SelectElement("lastmod") == nil {
+			log.Info().Str("loc", child.SelectElement("loc").InnerText()).Msg("No lastmod element")
+			lastmod = "2000-01-01T00:00:00Z"
+		} else {
+			lastmod = child.SelectElement("lastmod").InnerText()
+		}
+		es = append(es, entry{
+			val: lastmod,
+			key: child.SelectElement("loc").InnerText()})
+	})
+	counter_sitemaps += 1
+}
+
+func scrapeHandler(r *colly.Response) {
+	if r.Request.URL.String() == "/sitemap.xml" || counter_sitemaps < num_sitemaps {
+		fmt.Printf("Waiting for more sitemaps to be processed: %d / %d\n", counter_sitemaps, num_sitemaps)
+		return
+	}
+
+	sort.Sort(sort.Reverse(es))
+	for _, ei := range es {
+		err := r.Request.Visit(ei.key)
+		if err != nil && !isForbiddenURLError(err) {
+			log.Error().Err(err).Str("link", ei.key).Msg("Error attempting to visit link")
+		}
 	}
 }
 
